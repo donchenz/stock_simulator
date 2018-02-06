@@ -16,7 +16,7 @@ stock_gen.py	      <em>股票⾏情模拟⽣成器</em>
 
 golang用到的第三方库:
 -------------------
-github.com/gorilla/websocket
+github.com/gorilla/websocket  
 github.com/go-redis/redis
 
 运行:
