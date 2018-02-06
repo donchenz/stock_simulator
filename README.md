@@ -1,14 +1,14 @@
 
 目录结构
 ==============
-middleware       	<em>消息处理中间件</em>  
-  connection.go  	<em>处理和客户端的连接</em>  
-  hub.go 			<em>管理连接的集合，可以注册、注销连接，广播消息到各条连接等</em>  
-  main.go 			<em>程序入口</em>  
-  redisclient.go 	<em>处理redis的存取</em>  
-web  
-  client.html  
-stock_gen.py	<em>股票⾏情模拟⽣成器</em>  
+middleware       	  <em>//消息处理中间件</em>  
+    connection.go  	<em>//处理和客户端的连接</em>  
+    hub.go 			    <em>//管理连接的集合，可以注册、注销连接，广播消息到各条连接等</em>  
+    main.go 			  <em>//程序入口</em>  
+    redisclient.go 	<em>//处理redis的存取</em>  
+web                 <em>//客户端</em>  
+    client.html  
+stock_gen.py	      <em>股票⾏情模拟⽣成器</em>  
 
 
 安装 & 运行
