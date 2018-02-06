@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>股票行情</title>
+<script type="text/javascript" src="/web/jquery-3.3.1.min.js"></script>
+<script language="javascript"type="text/javascript">
+    var wsUri ="ws://localhost:8080/ws";
+    var stockNames = new Array();
+    function init() {
+        initTable();
+        doWebSocket();
+    }
+    function doWebSocket() {
+        websocket = new WebSocket(wsUri);
+        websocket.onopen = function(evt) {
+            onOpen(evt)
+        };
+        websocket.onclose = function(evt) {
+            onClose(evt)
+        };
+        websocket.onmessage = function(evt) {
+            onMessage(evt)
+        };
+        websocket.onerror = function(evt) {
+            onError(evt)
+        };
+    }
+    function onOpen(evt) {
+        $("#state").html("State: Connected");
+        sendHeartbeat();
+    }
+    function onClose(evt) {
+        $("#state").html("State: Disconnected");
+    }
+    function onMessage(evt) {
+        refreshData(evt.data);
+    }
+    function onError(evt) {
+        writeToScreen('<span style="color: red;">ERROR:</span> '+ evt.data);
+    }
+    function doSend(message) {
+        websocket.send(message);
+    }
+    function refreshData(data) {
+        var objs = JSON.parse(data);
+        objs.forEach(function(e) {  
+            name = e.name;
+            buy_price = e.buy_price;
+            sell_price = e.sell_price;
+            volume = e.volume;
+            if (isContain(stockNames, name)) {
+                //refresh row 
+                $("#buy_price_" + name).html(buy_price);
+                $("#sell_price_" + name).html(sell_price);
+                $("#volume_" + name).html(volume);
+            } else {        //add to tail
+                stockNames.push(name);
+                var rowHtml = getTableRow(name, buy_price, sell_price, volume);
+                var tableHtml = $("#stocktable").html();
+                tableHtml += rowHtml;
+                $("#stocktable").html(tableHtml);
+            }
+        })  
+    }
+    function sendHeartbeat() {
+        setInterval(function(){
+            doSendHeartbeat();                   
+        },2000);
+    }
+    function doSendHeartbeat() {
+        var hb = {"Seq": 1};
+        var hbJson = JSON.stringify(hb);
+        doSend(hbJson);
+    }
+    function getTableHeaderHtml() {
+        var html = "<tr><th>名字</th><th>买入价</th><th>卖出价</th><th>成交量</th></tr>"
+        return html;
+    }
+    function getTableRow(name, buy_price, sell_price, volume) {
+        var html = "<tr><td>" + name + "</td> \
+                        <td id='buy_price_" + name + "'>" + buy_price.toString() + "</td> \
+                        <td id='sell_price_" + name + "'>" + sell_price.toString() + "</td> \
+                        <td id='volume_" + name + "'>" + volume.toString() + "</td> \
+                    </tr>";
+        return html
+    }
+    function initTable() {
+        var htmls = getTableHeaderHtml();
+        $("#stocktable").html(htmls);
+    }
+    function isContain(arr,value) {
+      for(var i=0;i<arr.length;i++) {
+         if(arr[i]==value)
+          return true;
+      }
+      return false;
+    }
+    window.addEventListener("load", init, false);
+</script>
+<h2>股票行情</h2>
+
+<div>
+<style type="text/css">
+table.imagetable {
+    font-family: verdana,arial,sans-serif;
+    font-size:11px;
+    color:#333333;
+    border-width: 1px;
+    border-color: #999999;
+    border-collapse: collapse;
+}
+table.imagetable th {
+    background:#b5cfd2 url('cell-blue.jpg');
+    border-width: 1px;
+    padding: 8px;
+    border-style: solid;
+    border-color: #999999;
+}
+table.imagetable td {
+    background:#dcddc0 url('cell-grey.jpg');
+    border-width: 1px;
+    padding: 8px;
+    border-style: solid;
+    border-color: #999999;
+}
+</style>
+
+
+<table class="imagetable" id="stocktable">
+
+</table>
+</div>
+
+<div id="state">
+<p>
+State: Disconnected
+</p>
+
+</div>
+
+
+</html>
