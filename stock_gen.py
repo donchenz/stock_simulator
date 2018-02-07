@@ -1,23 +1,21 @@
 # -*- coding: UTF-8 -*-  
 
 
-import random, threading, time, json
-from redis import Redis
+import random, threading, time, json, socket
 
 #股票数量
 STOCK_NUM = 5
 #刷新间隔
 REFRESH_INTERVAL = 1
-#
-REDIS_HOST = '127.0.0.1'
-#
-REDIS_PORT = 6379
-#redis 队列名字
-REDIS_Q_NAME = 'stock_q'
+#middleware地址
+MCAST_ADDR = '224.0.0.1'
+#middleware端口
+MCAST_PORT = 9999
+
+ANY = '0.0.0.0'
+SENDERPORT=1501 
 
 
-
-redis = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 def get_random_num():
 	return round(random.random() * 100, 2)
@@ -41,6 +39,7 @@ class Stock:
 
 
 def generate_data():
+	print 'start to generate data...'
 	stock_name_list = ['stock_' + str(i) for i in range(1, STOCK_NUM+1)]
 
 	while True:
@@ -53,12 +52,15 @@ def generate_data():
 			stock_list.append(stock.__dict__)
 
 		stock_json = json.dumps(stock_list)
-		redis.lpush(REDIS_Q_NAME, stock_json)
-		print stock_json
+		send_data(stock_json)
 
 		time.sleep(REFRESH_INTERVAL)
 
-
+def send_data(data):
+	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) 
+	sock.bind((ANY,SENDERPORT)) 
+	sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
+	sock.sendto(data, (MCAST_ADDR,MCAST_PORT) )
 
 
 if __name__ == '__main__':

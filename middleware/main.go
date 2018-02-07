@@ -3,10 +3,15 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"github.com/gorilla/websocket"
-	"time"
 	"text/template"
+)
+
+const (
+	srvAddr         = "224.0.0.1:9999"
+	maxDatagramSize = 8192
 )
 
 var addr = flag.String("addr", "localhost:8080", "http service address")
@@ -36,22 +41,30 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	go c.reader()
 }
 
-func broadcast() {
-	timer := time.NewTicker(100 * time.Millisecond)
 
+func onStockDataReceived(src *net.UDPAddr, n int, message []byte) {
+	data := []byte(message[:n])
+	h.broadcast <- data
+}
+
+func serveMulticastUDP(a string, h func(*net.UDPAddr, int, []byte)) {
+	addr, err := net.ResolveUDPAddr("udp", a)
+	if err != nil {
+		log.Fatal(err)
+	}
+	l, err := net.ListenMulticastUDP("udp", nil, addr)
+	l.SetReadBuffer(maxDatagramSize)
 	for {
-		for {
-			message, empty := popMessage(); if empty {
-				break
-			}
-
-			h.broadcast <- []byte(message)
-			
+		b := make([]byte, maxDatagramSize)
+		n, src, err := l.ReadFromUDP(b)
+		if err != nil {
+			log.Fatal("ReadFromUDP failed:", err)
 		}
-		
-		<-timer.C
+		h(src, n, b)
 	}
 }
+
+
 
 func homeHandler(c http.ResponseWriter, req *http.Request) {
     homeTempl.Execute(c, req.Host)
@@ -65,9 +78,20 @@ func main() {
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/ws", wsHandler)
 	log.Printf("Listening to %s ...", *addr)
-	go broadcast()
+
+	//启动监听，接收股票数据
+	go serveMulticastUDP(srvAddr, onStockDataReceived)
+
+	//检查连接存活性
 	go h.checkConnection()
+
+	//监听客户端连接
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }
+
+
+
+
+

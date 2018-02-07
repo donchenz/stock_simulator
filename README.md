@@ -5,7 +5,6 @@ middleware       	            <em>//消息处理中间件</em>
 &ensp;&ensp; connection.go  	<em>//处理和客户端的连接</em>  
 &ensp;&ensp; hub.go 			    <em>//管理连接的集合，可以注册、注销连接，广播消息到各条连接等</em>  
 &ensp;&ensp; main.go 			    <em>//程序入口</em>  
-&ensp;&ensp; redisclient.go 	<em>//处理redis的存取</em>  
 web                 <em>//客户端</em>  
 &ensp;&ensp; client.html  
 stock_gen.py	      <em>股票⾏情模拟⽣成器</em>  
@@ -17,47 +16,43 @@ stock_gen.py	      <em>股票⾏情模拟⽣成器</em>
 golang用到的第三方库:
 -------------------
 github.com/gorilla/websocket  
-github.com/go-redis/redis
+
 
 运行:
 -------------------
-1. 项目需要用到redis，默认端口6379;
-2. 运行中间件。进入middleware目录，执行 go run *.go (或编译之后运行);
-3. 运行股票数据生成程序 python stock_gen.py;
-4. 打开浏览器，输入localhost:8080 进入客户端.
+1. 运行中间件。进入middleware目录，执行 go run *.go (或编译之后运行);
+2. 运行股票数据生成程序 python stock_gen.py;
+3. 打开浏览器，输入localhost:8080 进入客户端.
 
 
 设计动机 & 考虑因素
 ==============
-1. 股票⾏情模拟⽣成器和消息推送中间件之间的连接有可能丢数据，使用消息队列解决;
-2. 客户端和服务器之间需要心跳机制;
-3. 客户端可能有成千上万个，单进程的服务器不能支撑，需要考虑分布式;
+1. 股票⾏情模拟⽣成器和消息推送中间件之间的连接有可能多对多，因此生成器通过多播把消息发给中间件，
+   中间件如果crash，重启后推送最新消息即可;
+2. 多个股票行情模拟生成器把消息推送到中间件时，消息可能重复，需要去重;
+3. 客户端和服务器之间需要心跳机制;
 4. 需要考虑消息在特定时候的浪涌情况, 因此评估系统服务能力时应按峰值评估。
 
 
 
 技术实现
 ==============
-1. stock_gen随机生成股票数据，发送给消息处理中间件middleware。stock_gen和middleware
-   之间的通信通过消息队列进行。demo通过redis的lpush/lpop实现了简易的消息队列。stock_gen
-   不断把数据推送至redis，middleware不断从redis获取数据。redis定时将数据同步到db，避免
-   因redis crash导致的丢消息。
+1. stock_gen随机生成股票数据，发送给消息处理中间件middleware。
 2. middleware通过websocket的方式不断推送消息到客户端。每条连接产生一条connection。
    connection内置一个发送channel。
-3. middleware从redis取出一条数据后，放到hub的broadcast channel。hub 从broadcast channel
+3. middleware收到数据后，放到hub的broadcast channel。hub 从broadcast channel
    取出消息，对每一条在线的连接进行广播。
 4. 客户端定时向middleware发送心跳包，如果心跳超时，middleware会清理掉超时的连接。
 
 
 扩展
 ==============
-1. 单进程不足以支持成千上万个客户端，考虑通过多个middleware提供服务。redis消息队列设计成环形队列
-   模式，即队列达到最大长度后，每push一条消息进队头，就要从队尾pop一条消息扔掉。每个middleware
-   不是通过pop消费消息，而是通过指针记录已经消费到哪条消息。这样避免每个middleware都要保存一条
-   消息队列。
+1. middleware对接收到的消息进行去重。
 2. 扩展消息协议的格式，以便支持更复杂的协议。
 3. 客户端可能需要订阅某些股票的行情，因此考虑增加订阅功能，只给客户端推送订阅的数据。
-
+4. 如果middleware crash了，crash期间推送的消息可能丢失，因此对一定时间没有刷新的
+   股票，客户端需要主动查询最新的数据。
+5. middleware增加鉴权等功能。
 
 其他
 ===============
