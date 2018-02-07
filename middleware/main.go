@@ -12,9 +12,8 @@ import (
 const (
 	srvAddr         = "224.0.0.1:9999"
 	maxDatagramSize = 8192
+	httpServiceAddr	= "localhost:8080"
 )
-
-var addr = flag.String("addr", "localhost:8080", "http service address")
 
 var upgrader = websocket.Upgrader{
     ReadBufferSize:  1024,
@@ -74,10 +73,10 @@ func main() {
 	flag.Parse()
 	http.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("../web"))))
 	homeTempl = template.Must(template.ParseFiles("../web/client.html"))
-	go h.run()
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/ws", wsHandler)
-	log.Printf("Listening to %s ...", *addr)
+
+	go h.run()
 
 	//启动监听，接收股票数据
 	go serveMulticastUDP(srvAddr, onStockDataReceived)
@@ -86,7 +85,8 @@ func main() {
 	go h.checkConnection()
 
 	//监听客户端连接
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+	log.Printf("Listening to %s ...", httpServiceAddr)
+	if err := http.ListenAndServe(httpServiceAddr, nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }
